@@ -966,7 +966,8 @@ int wl_radio_status(struct ubus_context *ctx, struct ubus_object *obj,
 	wifi_driver_info(wldev, &minfo);
 
 	blob_buf_init(&bb, 0);
-	blobmsg_add_string(&bb, "radio", wldev);
+	blobmsg_add_string(&bb, "radio", ubus_objname_to_ifname(obj));
+	blobmsg_add_string(&bb, "phy", wldev);
 	blobmsg_add_string(&bb, "macaddr", hwaddr_str);
 	blobmsg_add_string(&bb, "firmware", minfo.fw_data);
 	blobmsg_add_string(&bb, "vendor_id", minfo.vendor_id);
@@ -4274,7 +4275,8 @@ static int wl_status(struct ubus_context *ctx, struct ubus_object *obj,
 
 		ttt = blobmsg_open_table(&bb, "");
 
-		blobmsg_add_string(&bb, "name", phyname);
+		blobmsg_add_string(&bb, "name", radios[i]);
+		blobmsg_add_string(&bb, "phy", phyname);
 		blobmsg_add_u8(&bb, "isup", (ifstat & IFF_UP) ? true : false);
 		//blobmsg_add_string(&bb, "standard", s_str);
 
@@ -4523,12 +4525,17 @@ static int add_radio_methods(struct ubus_object *radio_obj,
 	struct ubus_method *radio_methods;
 	int n_methods = 0;
 	enum wifi_band band;
+	char *phyname;
 
 	radio_methods = calloc(MAX_RADIO_METHODS, sizeof(struct ubus_method));
 	if (!radio_methods)
 		return -ENOMEM;
 
-	wifi_get_oper_band(radioname, &band);
+	phyname = (char *) wifi_radio_phyname(radioname);
+	if (!phyname)
+		return -ENOENT;
+
+	wifi_get_oper_band(phyname, &band);
 
 	UBUS_METHOD_ADD(radio_methods, n_methods,
 		UBUS_METHOD_NOARG("status", wl_radio_status));
@@ -4545,7 +4552,7 @@ static int add_radio_methods(struct ubus_object *radio_obj,
 	UBUS_METHOD_ADD(radio_methods, n_methods,
 		UBUS_METHOD("scan", wl_scan, wl_scan_policy));
 
-	if (libwifi_supports(radioname, "wifi_scan_ex")) {
+	if (libwifi_supports(phyname, "wifi_scan_ex")) {
 		UBUS_METHOD_ADD(radio_methods, n_methods,
 			UBUS_METHOD("scan_ex", wl_scan_ex, wl_scan_ex_policy));
 	}
@@ -4556,7 +4563,7 @@ static int add_radio_methods(struct ubus_object *radio_obj,
 	UBUS_METHOD_ADD(radio_methods, n_methods,
 		UBUS_METHOD("autochannel", wl_autochannel, wl_acs_policy));
 
-	if (libwifi_supports(radioname, "wifi_start_cac")) {
+	if (libwifi_supports(phyname, "wifi_start_cac")) {
 		UBUS_METHOD_ADD(radio_methods, n_methods,
 			UBUS_METHOD("start_cac", wl_start_cac, wl_cac_policy));
 
@@ -4564,27 +4571,27 @@ static int add_radio_methods(struct ubus_object *radio_obj,
 			UBUS_METHOD_NOARG("stop_cac", wl_stop_cac));
 	}
 
-	if (libwifi_supports(radioname, "wifi_add_iface")) {
+	if (libwifi_supports(phyname, "wifi_add_iface")) {
 		UBUS_METHOD_ADD(radio_methods, n_methods,
 			UBUS_METHOD("add_iface", wl_add_iface, add_iface_policy));
 	}
 
-	if (libwifi_supports(radioname, "wifi_del_iface")) {
+	if (libwifi_supports(phyname, "wifi_del_iface")) {
 		UBUS_METHOD_ADD(radio_methods, n_methods,
 			UBUS_METHOD("del_iface", wl_del_iface, del_iface_policy));
 	}
 
-	if (libwifi_supports(radioname, "wifi_channels_info")) {
+	if (libwifi_supports(phyname, "wifi_channels_info")) {
 		UBUS_METHOD_ADD(radio_methods, n_methods,
 			UBUS_METHOD_NOARG("channels_info", wl_channels_info));
 	}
 
-	if (libwifi_supports(radioname, "wifi_get_opclass_preferences")) {
+	if (libwifi_supports(phyname, "wifi_get_opclass_preferences")) {
 		UBUS_METHOD_ADD(radio_methods, n_methods,
 			UBUS_METHOD_NOARG("opclass_preferences", wl_opclass_preferences));
 	}
 
-	if (libwifi_supports(radioname, "wifi_simulate_radar") &&
+	if (libwifi_supports(phyname, "wifi_simulate_radar") &&
 	                    (band == BAND_5 || band == BAND_DUAL || band == BAND_UNKNOWN)) {
 		UBUS_METHOD_ADD(radio_methods, n_methods,
 			UBUS_METHOD("simulate_radar", wl_simulate_radar, wl_radar_policy));
