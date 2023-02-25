@@ -15,6 +15,8 @@ CODECOVERAGE_SRC = wifimngr.c
 BUILDCOLOR=@printf "\e[1;32mBuilding $< \e[0m\n"
 
 
+$(shell chmod a+x ./verifysum.sh)
+
 %.o: %.c
 	$(BUILDCOLOR)
 	$(CC) $(PROG_CFLAGS) $(FPIC) -c -o $@ $<
