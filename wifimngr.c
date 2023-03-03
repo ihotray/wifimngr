@@ -924,6 +924,7 @@ int wl_radio_status(struct ubus_context *ctx, struct ubus_object *obj,
 	char hwaddr_str[18] = {0};
 	uint8_t hwaddr[6] = {0};
 	const char *wldev;
+	const char *radioname;
 	ifstatus_t ifs = 0;
 	uint32_t channel;
 	enum wifi_bw bw;
@@ -942,6 +943,7 @@ int wl_radio_status(struct ubus_context *ctx, struct ubus_object *obj,
 
 	memset(&bb, 0, sizeof(bb));
 	wldev = ubus_radio_to_ifname(obj);
+	radioname = ubus_objname_to_ifname(obj);
 
 	wifi_radio_get_ifstatus(wldev, &ifs);
 	wifi_get_channel(wldev, &channel, &bw);
@@ -966,8 +968,8 @@ int wl_radio_status(struct ubus_context *ctx, struct ubus_object *obj,
 	wifi_driver_info(wldev, &minfo);
 
 	blob_buf_init(&bb, 0);
-	blobmsg_add_string(&bb, "radio", ubus_objname_to_ifname(obj));
-	blobmsg_add_string(&bb, "phy", wldev);
+	blobmsg_add_string(&bb, "radio", radioname);
+	blobmsg_add_string(&bb, "phyname", wldev);
 	blobmsg_add_string(&bb, "macaddr", hwaddr_str);
 	blobmsg_add_string(&bb, "firmware", minfo.fw_data);
 	blobmsg_add_string(&bb, "vendor_id", minfo.vendor_id);
@@ -4276,7 +4278,7 @@ static int wl_status(struct ubus_context *ctx, struct ubus_object *obj,
 		ttt = blobmsg_open_table(&bb, "");
 
 		blobmsg_add_string(&bb, "name", radios[i]);
-		blobmsg_add_string(&bb, "phy", phyname);
+		blobmsg_add_string(&bb, "phyname", phyname);
 		blobmsg_add_u8(&bb, "isup", (ifstat & IFF_UP) ? true : false);
 		//blobmsg_add_string(&bb, "standard", s_str);
 
@@ -4532,8 +4534,10 @@ static int add_radio_methods(struct ubus_object *radio_obj,
 		return -ENOMEM;
 
 	phyname = (char *) wifi_radio_phyname(radioname);
-	if (!phyname)
-		return -ENOENT;
+	if (!phyname) {
+		free(radio_methods);
+		return -1;
+	}
 
 	wifi_get_oper_band(phyname, &band);
 

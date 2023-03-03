@@ -19,4 +19,5 @@ wifimngr
 *.so
 *.xml
 .DS_Store
+._*
 
